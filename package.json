@@ -1,0 +1,47 @@
+{
+  "name": "hotel-offer-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && npm run build:web",
+    "build:api": "tsc -p tsconfig.json",
+    "build:web": "tsc --noEmit -p web/tsconfig.json && vite build --config web/vite.config.ts --configLoader runner",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/temporal/worker.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.108.0",
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/client": "^1.15.0",
+    "@temporalio/worker": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "express": "^5.1.0",
+    "framer-motion": "^14.14.0",
+    "ioredis": "^5.8.0",
+    "lucide-react": "^1.76.0",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.5",
+    "vite": "^7.3.8",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@temporalio/testing": "^1.26.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.3.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}
