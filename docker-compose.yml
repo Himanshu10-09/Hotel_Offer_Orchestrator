@@ -9,9 +9,9 @@ services:
       retries: 10
   temporal:
     image: temporalio/temporal:latest
-    command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233", "--db-filename", "/data/temporal.db"]
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233", "--db-filename", "/tmp/temporal.db"]
     ports: ["127.0.0.1:7233:7233", "127.0.0.1:8233:8233"]
-    volumes: ["temporal-data:/data"]
+    volumes: ["temporal-tmp-data:/tmp"]
   api:
     build: .
     command: ["node", "dist/server.js"]
@@ -54,4 +54,4 @@ services:
       temporal: {condition: service_started}
       api: {condition: service_started}
 volumes:
-  temporal-data:
+  temporal-tmp-data:

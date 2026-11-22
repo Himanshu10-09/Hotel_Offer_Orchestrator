@@ -1,62 +1,33 @@
 # Hotel Offer Orchestrator
 
-Compare hotel offers from two suppliers, keep the lowest price for each hotel, and filter results by price.
+Compare hotel prices from two suppliers, keep the best offer for each hotel, and search by price range.
 
-The service uses **Express**, **Temporal**, and **Redis**. A small React dashboard is served by the API.
+Built with TypeScript, Express, Temporal, Redis, and React.
 
-## Start the application
+## Run locally
 
-### Requirements
-
-- Docker Desktop with Docker Compose
-
-### Run
-
-From the project directory:
+Requirements: Docker Desktop with Docker Compose.
 
 ```sh
 docker compose up --build
 ```
 
-Open these local URLs:
-
-| Service | URL |
+| App | Address |
 | --- | --- |
 | Dashboard and API | [http://localhost:3000](http://localhost:3000) |
 | Temporal UI | [http://localhost:8233](http://localhost:8233) |
 
-Compose binds the ports to `127.0.0.1`, so the services are available only from the host machine by default. Redis is available to the other Compose services at `redis:6379`.
-
-## How it works
-
-```text
-Browser or Postman
-        |
-        v
-      API ---------> Temporal Server <-------- Worker
-        ^                                      |   |
-        |                                      |   +--> Supplier A endpoint
-        |                                      +------> Supplier B endpoint
-        |                                                  (API routes)
-        +---------------- Redis <-------------------------+
-                         store and price filter
-```
-
-For an unfiltered request, the API starts a Temporal workflow. The workflow requests both suppliers in parallel, chooses the cheaper offer for each normalized hotel name, and saves the results in Redis. For a price-filtered request, the API reads the price range from Redis with `ZRANGEBYSCORE`. A cache miss runs the workflow first.
-
 ## API
 
-| Method | Path | Purpose |
+| Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/api/hotels?city=delhi` | Run the workflow and return the best offers |
-| `GET` | `/api/hotels?city=delhi&minPrice=4000&maxPrice=6000` | Return offers in an inclusive price range |
-| `GET` | `/supplierA/hotels?city=delhi` | View Supplier A's mock data |
-| `GET` | `/supplierB/hotels?city=delhi` | View Supplier B's mock data |
-| `GET` | `/health` | Check supplier, Redis, and Temporal availability |
-| `POST` | `/api/admin/suppliers/B/down` | Simulate a supplier outage |
-| `POST` | `/api/admin/suppliers/B/up` | Restore a supplier |
+| `GET` | `/api/hotels?city=delhi` | Return the best hotel offers for a city |
+| `GET` | `/api/hotels?city=delhi&minPrice=4000&maxPrice=6000` | Filter offers by an inclusive price range |
+| `GET` | `/supplierA/hotels?city=delhi` | View Supplier A's hotel list |
+| `GET` | `/supplierB/hotels?city=delhi` | View Supplier B's hotel list |
+| `GET` | `/health` | Check service health |
 
-Hotel results are sorted by ascending price. Each result contains exactly these fields:
+Hotel responses are sorted by price and contain these fields:
 
 ```json
 {
@@ -67,89 +38,37 @@ Hotel results are sorted by ascending price. Each result contains exactly these 
 }
 ```
 
-Useful examples:
+Example requests:
 
 ```sh
 curl "http://localhost:3000/api/hotels?city=delhi"
-curl -i "http://localhost:3000/api/hotels?city=delhi&minPrice=4000&maxPrice=6000"
+curl "http://localhost:3000/api/hotels?city=delhi&minPrice=4000&maxPrice=6000"
 curl "http://localhost:3000/api/hotels?city=paris"
 curl "http://localhost:3000/health"
 ```
 
-Hotel responses include `X-Source`. When the request runs a workflow, it also includes `X-Workflow-Id`. Partial results include `X-Degraded` with the failed supplier name.
+## Tests and development
 
-## Development
+Run the test suite:
 
-For local development outside Docker, install **Node.js 20 or newer** and make Redis and Temporal available at the addresses in `.env.example`.
+```sh
+npm test
+```
+
+For local development outside Docker, install Node.js 20 or newer, copy `.env.example` to `.env`, and install dependencies:
 
 ```sh
 cp .env.example .env
 npm install
 npm run build
-npm test
 ```
 
-Start the API and worker in separate terminals:
-
-```sh
-npm start
-npm run start:worker
-```
-
-The Redis-store tests mock the ioredis command transport. To run Redis locally, start Redis 7 with `docker run -p 6379:6379 redis:7-alpine`; for end-to-end checks, use the Compose setup above.
+Start the API and Temporal worker in separate terminals with `npm start` and `npm run start:worker`. Redis and Temporal must be available at the addresses in `.env`.
 
 ## Postman
 
-Import [`postman/hotel-offer-orchestrator.postman_collection.json`](postman/hotel-offer-orchestrator.postman_collection.json) into Postman. Set `baseUrl` to `http://localhost:3000`, then run the collection. It covers valid and unknown cities, price filtering, invalid bounds, supplier endpoints, health, and the Supplier B outage flow.
-
-## Configuration
-
-Copy `.env.example` to `.env` to override local defaults. The available settings are:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PORT` | `3000` | API port |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
-| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server address |
-| `TEMPORAL_NAMESPACE` | `default` | Temporal namespace |
-| `TEMPORAL_TASK_QUEUE` | `hotel-offers` | Worker task queue |
-| `SUPPLIER_BASE_URL` | `http://localhost:3000` | Mock supplier service URL |
-| `SUPPLIER_TIMEOUT_MS` | `3000` | Supplier request timeout |
-| `CACHE_TTL_SECONDS` | `300` | Normal cache lifetime |
-| `DEGRADED_CACHE_TTL_SECONDS` | `60` | Cache lifetime after a supplier failure |
-| `LOG_LEVEL` | `info` | Structured log verbosity |
-
-## Assumptions
-
-| Situation | Behavior |
-| --- | --- |
-| Equal prices | Supplier A wins |
-| Duplicate hotel names | Match after trimming, collapsing whitespace, and lowercasing |
-| Filtered request with a cache miss | Run the workflow, save results, then query Redis |
-| Unfiltered request | Always run the workflow |
-| One supplier unavailable | Return the other supplier's offers and set `X-Degraded` |
-| Both suppliers unavailable | Return HTTP 502 |
-| Unknown city | Return HTTP 200 with an empty array |
-| Temporal service | Use the development server and local persistence for this assessment |
-
-## Public repository safety
-
-- Keep real credentials and production endpoints out of `.env.example`. Local `.env` files are ignored by Git.
-- `instructions_docs/` contains the supplied assessment and planning notes, including personal attribution. It is excluded from Git and Docker build contexts; keep a local copy if needed.
-- Dependencies, generated files, local secrets, and operating-system metadata are excluded by the ignore files.
-- Supplier outage controls are unauthenticated demo endpoints. Do not expose this assessment service publicly without adding authentication and rate limiting.
-
-## Deployment note
-
-The Compose setup is intended for local use. For a Linux VPS, run it behind a host reverse proxy while keeping Redis and Temporal private. The API's outage controls also need authentication and rate limiting before public exposure.
-
-## Troubleshooting
-
-- If hotel requests report orchestration unavailable, check that Temporal is running and the worker has joined the `hotel-offers` task queue.
-- Inspect service logs with `docker compose logs api worker temporal redis`.
-- Cache entries expire after 300 seconds, or after 60 seconds when supplier data is degraded.
-- If Docker cannot pull an image, check registry access and run `docker compose pull` before rebuilding.
+Import [`postman/hotel-offer-orchestrator.postman_collection.json`](postman/hotel-offer-orchestrator.postman_collection.json) and set `baseUrl` to `http://localhost:3000`.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)
